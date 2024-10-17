@@ -1,0 +1,13 @@
+[package]
+name = "mget"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+log = { version = "0.4.22", features = ["serde", "std"] }
+anyhow = "1.0.89"
+clap = { version = "4.5.20", features = ["derive"] }
+itertools = "0.13.0"
+reqwest = { version = "0.12.8", features = ["json"] }
+tl = "0.7.8"
+tokio = { version = "1.40.0", features = ["full"] }
