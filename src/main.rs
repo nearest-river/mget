@@ -35,7 +35,7 @@ async fn main()-> anyhow::Result<()> {
       continue;
     }
     if path.ends_with('/') {
-      log::warn!("invalid path: {path}\nSkipped..");
+      println!("invalid path: {path}\nSkipped..");
       continue;
     }
 
