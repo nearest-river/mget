@@ -1,7 +1,6 @@
 
-mod target;
-use target::*;
 use clap::Parser;
+use regex::Regex;
 
 use reqwest::{
   Url,
@@ -12,7 +11,8 @@ use reqwest::{
 #[derive(Parser)]
 struct App {
   urls: Vec<Url>,
-  target_docs: Vec<DocType>
+  #[arg(long,alias="target",default_value="vid")]
+  target_docs: Vec<Box<str>>
 }
 
 
@@ -21,7 +21,12 @@ struct App {
 async fn main()-> anyhow::Result<()> {
   let app=App::parse();
   let urls=app.urls;
-  let pattern=app.target_docs.pattern();
+  // SAFETY: The formed regices should be okay.
+  let pattern=unsafe {
+    // it's nothing but r"\.(ext1|ext2)$"
+    Regex::new(&format!(r"\.({})$",app.target_docs.join("|")))
+    .unwrap_unchecked()
+  };
 
   for url in urls {
     let path=url.path();
@@ -29,7 +34,7 @@ async fn main()-> anyhow::Result<()> {
       download_vid(url).await?;
       continue;
     }
-    if !path.ends_with('/') {
+    if path.ends_with('/') {
       log::warn!("invalid path: {path}\nSkipped..");
       continue;
     }
