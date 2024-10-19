@@ -13,3 +13,5 @@ tokio = { version = "1.40.0", features = ["full"] }
 tracing-indicatif = "0.3.6"
 regex = "1.11.0"
 color-print = "0.3.6"
+tracing = { version = "0.1.40", features = ["async-await"] }
+tracing-subscriber = { version = "0.3.18", features = ["tracing"] }

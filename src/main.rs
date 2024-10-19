@@ -2,10 +2,16 @@
 use clap::Parser;
 use regex::Regex;
 
+use tracing::{
+  info,
+  warn
+};
+
 use reqwest::{
   Url,
   IntoUrl
 };
+
 
 
 #[derive(Parser)]
@@ -19,6 +25,7 @@ struct App {
 
 #[tokio::main]
 async fn main()-> anyhow::Result<()> {
+  init_logger();
   let app=App::parse();
   let urls=app.urls;
   // SAFETY: The formed regices should be okay.
@@ -35,24 +42,34 @@ async fn main()-> anyhow::Result<()> {
       continue;
     }
     if path.ends_with('/') {
-      println!("invalid path: {path}\nSkipped..");
+      warn!("invalid path: {path}\nSkipped..");
       continue;
     }
 
 
     let html=reqwest::get(url.as_str()).await?.text().await?;
     let _dom=tl::parse(&html,Default::default())?;
-    println!("for {url}:\n{html}");
+    info!("for {url}:\n{html}");
   }
 
 
   Ok(())
 }
 
+fn init_logger() {
+  tracing_subscriber::FmtSubscriber::builder()
+  .compact()
+  .with_line_number(false)
+  .without_time()
+  .with_level(false)
+  .with_target(false)
+  .init();
+}
+
 
 async fn download_vid<T: IntoUrl>(url: T)-> anyhow::Result<()> {
   let res=reqwest::get(url).await?;
 
-  println!("{res:#?}");
+  info!("{res:#?}");
   Ok(())
 }
