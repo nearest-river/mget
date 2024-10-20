@@ -1,7 +1,6 @@
 
+mod doc_type;
 use clap::Parser;
-use regex::Regex;
-
 use tracing::{
   info,
   warn
@@ -28,12 +27,7 @@ async fn main()-> anyhow::Result<()> {
   init_logger();
   let app=App::parse();
   let urls=app.urls;
-  // SAFETY: The formed regices should be okay.
-  let pattern=unsafe {
-    // it's nothing but r"\.(ext1|ext2)$"
-    Regex::new(&format!(r"\.({})$",app.target_docs.join("|")))
-    .unwrap_unchecked()
-  };
+  let pattern=doc_type::parse(&app.target_docs);
 
   for url in urls {
     let path=url.path();
