@@ -1,10 +1,10 @@
 
+mod dom_ext;
 mod doc_type;
+
 use clap::Parser;
-use tracing::{
-  info,
-  warn
-};
+use tracing::info;
+use dom_ext::DomExt;
 
 use reqwest::{
   Url,
@@ -32,17 +32,16 @@ async fn main()-> anyhow::Result<()> {
   for url in urls {
     let path=url.path();
     if pattern.is_match(path) {
-      download_vid(url).await?;
-      continue;
-    }
-    if path.ends_with('/') {
-      warn!("invalid path: {path}\nSkipped..");
+      download(url).await?;
       continue;
     }
 
-
-    let html=reqwest::get(url.as_str()).await?.text().await?;
-    let _dom=tl::parse(&html,Default::default())?;
+    let html=reqwest::get(url.as_str())
+    .await?
+    .text()
+    .await?;
+    let _extracted_urls=tl::parse(&html,Default::default())?
+    .extract_urls(&pattern);
     info!("for {url}:\n{html}");
   }
 
@@ -61,7 +60,7 @@ fn init_logger() {
 }
 
 
-async fn download_vid<T: IntoUrl>(url: T)-> anyhow::Result<()> {
+async fn download<T: IntoUrl>(url: T)-> anyhow::Result<()> {
   let res=reqwest::get(url).await?;
 
   info!("{res:#?}");
