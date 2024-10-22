@@ -7,7 +7,7 @@ edition = "2021"
 anyhow = "1.0.89"
 clap = { version = "4.5.20", features = ["derive"] }
 itertools = "0.13.0"
-reqwest = { version = "0.12.8", features = ["json"] }
+reqwest = { version = "0.12.8", features = ["rustls-tls"] }
 tl = "0.7.8"
 tokio = { version = "1.40.0", features = ["full"] }
 tracing-indicatif = "0.3.6"
@@ -15,3 +15,4 @@ regex = "1.11.0"
 color-print = "0.3.6"
 tracing = { version = "0.1.40", features = ["async-await"] }
 tracing-subscriber = { version = "0.3.18", features = ["tracing"] }
+percent-encoding = "2.3.1"

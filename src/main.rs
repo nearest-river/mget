@@ -1,6 +1,7 @@
 
 mod dom_ext;
 mod doc_type;
+mod downloader;
 
 use clap::Parser;
 use tracing::info;
@@ -36,13 +37,14 @@ async fn main()-> anyhow::Result<()> {
       continue;
     }
 
-    let html=reqwest::get(url.as_str())
+    let html=reqwest::get(url)
     .await?
     .text()
     .await?;
     let _extracted_urls=tl::parse(&html,Default::default())?
     .extract_urls(&pattern);
-    info!("for {url}:\n{html}");
+
+
   }
 
 
