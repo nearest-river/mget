@@ -1,8 +1,13 @@
 
-use reqwest::IntoUrl;
 use tokio::{
   fs::OpenOptions,
   io::AsyncWriteExt
+};
+
+use reqwest::{
+  Client,
+  IntoUrl,
+  Response
 };
 
 use std::{
@@ -25,6 +30,7 @@ static DOWNLOAD_DIR: LazyLock<PathBuf>=LazyLock::new(|| {
   path
 });
 
+
 pub async fn download<T: IntoUrl>(url: T)-> anyhow::Result<()> {
   let url=url.into_url()?;
   let path: PathBuf=percent_encoding::percent_decode_str(url.path())
@@ -37,7 +43,7 @@ pub async fn download<T: IntoUrl>(url: T)-> anyhow::Result<()> {
     .unwrap_unchecked()
   };
 
-  let res=reqwest::get(url).await?;
+  let res=get(url).await?;
   let mut file=OpenOptions::new()
   .create(true)
   .write(true)
@@ -49,4 +55,12 @@ pub async fn download<T: IntoUrl>(url: T)-> anyhow::Result<()> {
   Ok(())
 }
 
+#[inline]
+async fn get<T: IntoUrl>(url: T)-> reqwest::Result<Response> {
+  static CLIENT: LazyLock<Client>=LazyLock::new(|| Client::new());
+
+  CLIENT.get(url)
+  .send()
+  .await
+}
 
