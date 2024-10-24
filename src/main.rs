@@ -39,10 +39,16 @@ async fn main()-> anyhow::Result<()> {
     .await?
     .text()
     .await?;
-    let _extracted_urls=tl::parse(&html,Default::default())?
-    .extract_urls(&pattern);
-  }
 
+    let extracted_urls=tl::parse(&html,Default::default())?
+    .extract_urls(&pattern);
+
+    tasks.reserve(extracted_urls.len());
+    tasks.extend(
+      extracted_urls.into_iter()
+      .map(|url| tokio::spawn(downloader::download(url)))
+    );
+  }
 
   await_tasks(tasks).await
 }
