@@ -3,14 +3,11 @@ mod dom_ext;
 mod doc_type;
 mod downloader;
 
+use reqwest::Url;
 use clap::Parser;
-use tracing::info;
 use dom_ext::DomExt;
-
-use reqwest::{
-  Url,
-  IntoUrl
-};
+use futures::future;
+use tokio::task::JoinHandle;
 
 
 
@@ -29,11 +26,12 @@ async fn main()-> anyhow::Result<()> {
   let app=App::parse();
   let urls=app.urls;
   let pattern=doc_type::parse(&app.target_docs);
+  let mut tasks=Vec::new();
 
   for url in urls {
     let path=url.path();
     if pattern.is_match(path) {
-      download(url).await?;
+      tasks.push(tokio::spawn(downloader::download(url)));
       continue;
     }
 
@@ -43,12 +41,10 @@ async fn main()-> anyhow::Result<()> {
     .await?;
     let _extracted_urls=tl::parse(&html,Default::default())?
     .extract_urls(&pattern);
-
-
   }
 
 
-  Ok(())
+  await_tasks(tasks).await
 }
 
 fn init_logger() {
@@ -61,10 +57,22 @@ fn init_logger() {
   .init();
 }
 
+async fn await_tasks<T>(tasks: Vec<JoinHandle<anyhow::Result<T>>>)-> anyhow::Result<()> {
+  let iter=future::join_all(tasks).await
+  .into_iter()
+  .filter(Result::is_ok);
 
-async fn download<T: IntoUrl>(url: T)-> anyhow::Result<()> {
-  let res=reqwest::get(url).await?;
+  for task in iter {
+    // SAFETY: trust me bro. (I just filterred it in the previous line.. cant you see?.. idiot)
+    let res=unsafe {
+      task.unwrap_unchecked()
+    };
 
-  info!("{res:#?}");
+    if let Err(err)=res {
+      tracing::error!("{err}");
+    }
+  }
+
   Ok(())
 }
+
