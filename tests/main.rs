@@ -36,20 +36,6 @@ fn progress_style()-> ProgressStyle {
   .progress_chars("#>-")
 }
 
-
-async fn _get_content_size()-> reqwest::Result<u64> {
-  static URL: &str="http://84.22.44.211/09.09/Interstellar%20(2014)%20(2014)%20[1080p]/Interstellar.2014.2014.1080p.BluRay.x264.YIFY.mp4";
-  let client=Client::new();
-  let res=client.head(URL)
-  .send()
-  .await?;
-
-  Ok(match res.content_length() {
-    Some(size)=> size,
-    _=> f64::INFINITY as _
-  })
-}
-
 fn _init_logger() {
   tracing_subscriber::FmtSubscriber::builder()
   .compact()
@@ -61,4 +47,15 @@ fn _init_logger() {
 }
 
 
+#[tokio::test]
+async fn get_content_size()-> reqwest::Result<()> {
+  static URL: &str="http://localhost:8000/xd.mp4";
+  let client=Client::new();
+  let res=client.get(URL)
+  .send()
+  .await?;
+
+  println!("{}",res.content_length().unwrap_or(0));
+  Ok(())
+}
 

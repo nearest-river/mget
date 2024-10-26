@@ -19,21 +19,17 @@ use indicatif::{
 };
 
 use tokio::{
-  sync::Mutex,
+  sync::RwLock,
   fs::OpenOptions,
   task::JoinHandle,
-  io::AsyncWriteExt,
-  io::{
-    Error,
-    ErrorKind
-  }
+  io::AsyncWriteExt
 };
 
 
 #[derive(Default)]
 pub struct Downloader {
   progress_bars: MultiProgress,
-  tasks: Mutex<Vec<JoinHandle<anyhow::Result<()>>>>
+  tasks: RwLock<Vec<JoinHandle<anyhow::Result<()>>>>
 }
 
 macro_rules! download_task {
@@ -50,13 +46,13 @@ impl Downloader {
 
   #[inline]
   pub async fn add_to_queue(&self,url: Url) {
-    let mut tasks=self.tasks.lock().await;
+    let mut tasks=self.tasks.write().await;
     tasks.push(download_task!(self,url))
   }
 
   #[inline]
   pub async fn extent_queue<I: ExactSizeIterator<Item=Url>>(&self,iter: I) {
-    let mut tasks=self.tasks.lock().await;
+    let mut tasks=self.tasks.write().await;
     tasks.reserve(iter.len());
     tasks.extend(iter.map(|url| download_task!(self,url)));
   }
@@ -94,10 +90,12 @@ async fn download<T: IntoUrl>(progress_bars: MultiProgress,url: T)-> anyhow::Res
     .unwrap_unchecked()
   };
 
-  let res=get(url).await?.bytes().await?;
+  let mut res=get(url).await?;
   let bar=progress_bars.add(
-    ProgressBar::new(res.len() as _)
-    .with_style(progress_style())
+    ProgressBar::new(
+      res.content_length()
+      .unwrap_or(0)
+    ).with_style(progress_style())
   );
 
   let mut file=OpenOptions::new()
@@ -107,20 +105,11 @@ async fn download<T: IntoUrl>(progress_bars: MultiProgress,url: T)-> anyhow::Res
   .open(file_name)
   .await?;
 
-  let mut buf=res.as_ref();
-  while !buf.is_empty() {
-    match file.write(buf).await {
-      Ok(0)=> Err(Error::new(ErrorKind::WriteZero, "failed to write whole buffer"))?,
-      Ok(n)=> {
-        buf=&buf[n..];
-        bar.inc(n as _);
-      },
-      Err(ref e) if e.kind()==ErrorKind::Interrupted=> (),
-      Err(e)=> return Err(e)?
-    }
+  while let Some(buf)=res.chunk().await? {
+    file.write_all(&buf).await?;
+    bar.inc(buf.len() as _);
   }
 
-  bar.finish_with_message(format!("downloaded {file_name:#?}"));
   Ok(())
 }
 
