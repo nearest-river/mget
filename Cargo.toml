@@ -3,16 +3,21 @@ name = "mget"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+strip = true
+opt-level = "s"
+lto = true
+codegen-units = 1
+
 [dependencies]
-anyhow = "1.0.89"
-clap = { version = "4.5.20", features = ["derive"] }
-itertools = "0.13.0"
-reqwest = { version = "0.12.8", features = ["rustls-tls"] }
 tl = "0.7.8"
-tokio = { version = "1.40.0", features = ["full"] }
 regex = "1.11.0"
-tracing = { version = "0.1.40", features = ["async-await"] }
-tracing-subscriber = { version = "0.3.18", features = ["tracing"] }
+anyhow = "1.0.89"
 percent-encoding = "2.3.1"
+tokio = { version = "1.40.0", features = ["full"] }
+clap = { version = "4.5.20", features = ["derive"] }
+reqwest = { version = "0.12.8", features = ["rustls-tls"] }
 futures = { version = "0.3.31", features = ["thread-pool"] }
+tracing = { version = "0.1.40", features = ["async-await"] }
 indicatif = { version = "0.17.8", features = ["futures", "tokio"] }
+tracing-subscriber = { version = "0.3.18", features = ["tracing"] }
