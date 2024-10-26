@@ -12,7 +12,7 @@ use downloader::Downloader;
 
 #[derive(Parser)]
 struct App {
-  urls: Vec<Url>,
+  urls: Vec<String>,
   #[arg(long,alias="target",default_value="vid")]
   target_docs: Vec<Box<str>>
 }
@@ -27,6 +27,7 @@ async fn main()-> anyhow::Result<()> {
   let mut downloader=Downloader::new();
 
   for url in urls {
+    let url=Url::parse(&url)?;
     let path=url.path();
     if pattern.is_match(path) {
       downloader.add_to_queue(url);

@@ -40,7 +40,7 @@ static DOWNLOAD_DIR: LazyLock<PathBuf>=LazyLock::new(|| {
     _=> PathBuf::from(env!("HOME"))
   };
 
-  path.push("Download");
+  path.push("Downloads");
   path
 });
 
