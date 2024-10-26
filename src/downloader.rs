@@ -20,6 +20,7 @@ use indicatif::{
 };
 
 use tokio::{
+  sync::Mutex,
   fs::OpenOptions,
   task::JoinHandle,
   io::AsyncWriteExt,
@@ -47,7 +48,7 @@ static DOWNLOAD_DIR: LazyLock<PathBuf>=LazyLock::new(|| {
 #[derive(Default)]
 pub struct Downloader {
   progress_bars: MultiProgress,
-  tasks: Vec<JoinHandle<anyhow::Result<()>>>
+  tasks: Mutex<Vec<JoinHandle<anyhow::Result<()>>>>
 }
 
 macro_rules! download_task {
@@ -63,18 +64,20 @@ impl Downloader {
   }
 
   #[inline]
-  pub fn add_to_queue(&mut self,url: Url) {
-    self.tasks.push(download_task!(self,url))
+  pub async fn add_to_queue(&self,url: Url) {
+    let mut tasks=self.tasks.lock().await;
+    tasks.push(download_task!(self,url))
   }
 
   #[inline]
-  pub fn extent_queue<I: ExactSizeIterator<Item=Url>>(&mut self,iter: I) {
-    self.tasks.reserve(iter.len());
-    self.tasks.extend(iter.map(|url| download_task!(self,url)));
+  pub async fn extent_queue<I: ExactSizeIterator<Item=Url>>(&self,iter: I) {
+    let mut tasks=self.tasks.lock().await;
+    tasks.reserve(iter.len());
+    tasks.extend(iter.map(|url| download_task!(self,url)));
   }
 
   pub async fn await_all(self)-> anyhow::Result<()> {
-    let iter=future::join_all(self.tasks).await
+    let iter=future::join_all(self.tasks.into_inner()).await
     .into_iter()
     .filter(Result::is_ok);
 

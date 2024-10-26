@@ -7,6 +7,10 @@ use reqwest::Url;
 use clap::Parser;
 use dom_ext::DomExt;
 use downloader::Downloader;
+use futures::{
+  stream,
+  StreamExt
+};
 
 
 
@@ -22,16 +26,17 @@ struct App {
 async fn main()-> anyhow::Result<()> {
   init_logger();
   let app=App::parse();
-  let urls=app.urls;
   let pattern=doc_type::parse(&app.target_docs);
-  let mut downloader=Downloader::new();
+  let downloader=Downloader::new();
 
-  for url in urls {
-    let url=Url::parse(&url)?;
+  stream::iter(app.urls)
+  .map(|url| Url::parse(&url))
+  .map(|url| async {
+    let url=url?;
     let path=url.path();
-    if pattern.is_match(path) {
-      downloader.add_to_queue(url);
-      continue;
+    if !path.ends_with('/') {
+      downloader.add_to_queue(url).await;
+      return Ok(());
     }
 
     let html=reqwest::get(url)
@@ -41,8 +46,11 @@ async fn main()-> anyhow::Result<()> {
 
     let extracted_urls=tl::parse(&html,Default::default())?
     .extract_urls(&pattern);
-    downloader.extent_queue(extracted_urls.into_iter());
-  }
+    downloader.extent_queue(extracted_urls.into_iter()).await;
+    anyhow::Ok(())
+  })
+  .for_each(|xd| async { drop(xd) })
+  .await;
 
   downloader.await_all().await
 }
