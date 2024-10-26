@@ -1,7 +1,6 @@
 
 use futures::future;
 use std::{
-  env,
   path::PathBuf,
   sync::LazyLock
 };
@@ -25,25 +24,11 @@ use tokio::{
   task::JoinHandle,
   io::AsyncWriteExt,
   io::{
-    self,
     Error,
     ErrorKind
   }
 };
 
-
-#[cfg(target_os="android")]
-static DOWNLOAD_DIR: &'static str=PathBuf::from("/storage/emulated/0/Download");
-#[cfg(not(target_os="android"))]
-static DOWNLOAD_DIR: LazyLock<PathBuf>=LazyLock::new(|| {
-  let mut path=match env::var("HOME") {
-    Ok(home)=> PathBuf::from(home),
-    _=> PathBuf::from(env!("HOME"))
-  };
-
-  path.push("Downloads");
-  path
-});
 
 #[derive(Default)]
 pub struct Downloader {
@@ -109,9 +94,9 @@ async fn download<T: IntoUrl>(progress_bars: MultiProgress,url: T)-> anyhow::Res
     .unwrap_unchecked()
   };
 
-  let res=get(url).await?;
+  let res=get(url).await?.bytes().await?;
   let bar=progress_bars.add(
-    ProgressBar::new(content_len(&res)?)
+    ProgressBar::new(res.len() as _)
     .with_style(progress_style())
   );
 
@@ -119,11 +104,10 @@ async fn download<T: IntoUrl>(progress_bars: MultiProgress,url: T)-> anyhow::Res
   .create(true)
   .write(true)
   .read(true)
-  .open(DOWNLOAD_DIR.join(file_name))
+  .open(file_name)
   .await?;
 
-  let bytes=res.bytes().await?;
-  let mut buf=bytes.as_ref();
+  let mut buf=res.as_ref();
   while !buf.is_empty() {
     match file.write(buf).await {
       Ok(0)=> Err(Error::new(ErrorKind::WriteZero, "failed to write whole buffer"))?,
@@ -136,15 +120,8 @@ async fn download<T: IntoUrl>(progress_bars: MultiProgress,url: T)-> anyhow::Res
     }
   }
 
+  bar.finish_with_message(format!("downloaded {file_name:#?}"));
   Ok(())
-}
-
-#[inline(always)]
-fn content_len(res: &Response)-> io::Result<u64> {
-  match res.content_length() {
-    Some(len)=> Ok(len),
-    _=> Err(Error::new(ErrorKind::InvalidData,"couldn't retrieve the content-size"))
-  }
 }
 
 #[inline]

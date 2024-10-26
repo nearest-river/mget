@@ -3,8 +3,8 @@ mod dom_ext;
 mod doc_type;
 mod downloader;
 
-use reqwest::Url;
 use clap::Parser;
+use reqwest::Url;
 use dom_ext::DomExt;
 use downloader::Downloader;
 use futures::{
@@ -49,8 +49,11 @@ async fn main()-> anyhow::Result<()> {
     downloader.extent_queue(extracted_urls.into_iter()).await;
     anyhow::Ok(())
   })
-  .for_each(|xd| async { drop(xd) })
-  .await;
+  .for_each_concurrent(None,|res| async {
+    if let Err(err)=res.await {
+      tracing::error!("{err}");
+    }
+  }).await;
 
   downloader.await_all().await
 }
