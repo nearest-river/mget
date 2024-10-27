@@ -3,6 +3,9 @@ name = "mget"
 version = "1.0.0"
 edition = "2021"
 
+[package.metadata]
+repository = "https://github.com/nearest-river/mget"
+
 [profile.release]
 strip = true
 opt-level = "s"

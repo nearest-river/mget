@@ -1,0 +1,6 @@
+[registries]
+github = { index = "https://github.com/nearest-river/mget" }
+
+[net]
+git-fetch-with-cli = true
+
