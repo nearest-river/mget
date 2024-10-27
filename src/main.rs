@@ -1,4 +1,5 @@
 
+#[macro_use]
 mod dom_ext;
 mod doc_type;
 mod downloader;
@@ -6,6 +7,7 @@ mod downloader;
 use clap::Parser;
 use reqwest::Url;
 use dom_ext::DomExt;
+use std::path::Path;
 use downloader::Downloader;
 use futures::{
   stream,
@@ -17,6 +19,8 @@ use futures::{
 #[derive(Parser)]
 struct App {
   urls: Vec<String>,
+  #[arg(long,short,alias="out",default_value=".")]
+  out_dir: Box<Path>,
   #[arg(long,alias="target",default_value="vid")]
   target_docs: Vec<Box<str>>
 }
@@ -35,7 +39,13 @@ async fn main()-> anyhow::Result<()> {
     let url=url?;
     let path=url.path();
     if !path.ends_with('/') {
-      downloader.add_to_queue(url).await;
+      let path=percent_encode_path!(url);
+
+      // SAFETY: trust me bro. (its already been filterred 69 times)
+      downloader.add_to_queue(
+        url,
+        app.out_dir.join(path.file_name().unwrap())
+      ).await;
       return Ok(());
     }
 
@@ -45,7 +55,7 @@ async fn main()-> anyhow::Result<()> {
     .await?;
 
     let extracted_urls=tl::parse(&html,Default::default())?
-    .extract_urls(&pattern);
+    .extract_urls(&pattern,&app.out_dir);
     downloader.extent_queue(extracted_urls.into_iter()).await;
     anyhow::Ok(())
   })
@@ -67,5 +77,6 @@ fn init_logger() {
   .with_target(false)
   .init();
 }
+
 
 

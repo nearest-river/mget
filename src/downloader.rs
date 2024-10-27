@@ -33,8 +33,8 @@ pub struct Downloader {
 }
 
 macro_rules! download_task {
-  ($this:expr,$url:expr)=> {
-    tokio::spawn(download($this.progress_bars.clone(),$url))
+  ($this:expr,$url:expr,$path:expr)=> {
+    tokio::spawn(download($this.progress_bars.clone(),$url,$path))
   };
 }
 
@@ -45,16 +45,19 @@ impl Downloader {
   }
 
   #[inline]
-  pub async fn add_to_queue(&self,url: Url) {
+  pub async fn add_to_queue(&self,url: Url,path: PathBuf) {
     let mut tasks=self.tasks.write().await;
-    tasks.push(download_task!(self,url))
+    tasks.push(download_task!(self,url,path))
   }
 
   #[inline]
-  pub async fn extent_queue<I: ExactSizeIterator<Item=Url>>(&self,iter: I) {
+  pub async fn extent_queue(&self,iter: impl ExactSizeIterator<Item=(Url,PathBuf)>) {
     let mut tasks=self.tasks.write().await;
     tasks.reserve(iter.len());
-    tasks.extend(iter.map(|url| download_task!(self,url)));
+    tasks.extend(
+      iter
+      .map(|(url,path)| download_task!(self,url,path))
+    );
   }
 
   pub async fn await_all(self)-> anyhow::Result<()> {
@@ -78,18 +81,7 @@ impl Downloader {
 }
 
 
-async fn download<T: IntoUrl>(progress_bars: MultiProgress,url: T)-> anyhow::Result<()> {
-  let url=url.into_url()?;
-  let path: PathBuf=percent_encoding::percent_decode_str(url.path())
-  .decode_utf8_lossy()
-  .into_owned()
-  .into();
-  // SAFETY: trust me bro. (its already been filterred 69 times)
-  let file_name=unsafe {
-    path.file_name()
-    .unwrap_unchecked()
-  };
-
+async fn download(progress_bars: MultiProgress,url: Url,path: PathBuf)-> anyhow::Result<()> {
   let mut res=get(url).await?;
   let bar=progress_bars.add(
     ProgressBar::new(
@@ -102,7 +94,7 @@ async fn download<T: IntoUrl>(progress_bars: MultiProgress,url: T)-> anyhow::Res
   .create(true)
   .write(true)
   .read(true)
-  .open(file_name)
+  .open(path)
   .await?;
 
   while let Some(buf)=res.chunk().await? {

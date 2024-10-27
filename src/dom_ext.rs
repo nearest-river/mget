@@ -7,36 +7,48 @@ use tl::{
   VDom
 };
 
+use std::path::{
+  Path,
+  PathBuf
+};
+
+
+#[macro_export]
+macro_rules! percent_encode_path {
+  ($url:expr)=> {
+    std::path::PathBuf::from(
+      percent_encoding::percent_decode_str($url.path())
+      .decode_utf8_lossy()
+      .into_owned()
+    )
+  };
+}
 
 
 pub trait DomExt {
-  fn extract_urls(&self,pattern: &Regex)-> Vec<Url>;
+  fn extract_urls<P: AsRef<Path>>(&self,pattern: &Regex,dir: P)-> Vec<(Url,PathBuf)>;
 }
 
 impl DomExt for VDom<'_> {
-  fn extract_urls(&self,pattern: &Regex)-> Vec<Url> {
-    let mut urls=Vec::new();
+  fn extract_urls<P: AsRef<Path>>(&self,pattern: &Regex,dir: P)-> Vec<(Url,PathBuf)> {
     // SAFETY: `a` is a html tag so the query-selector is always valid
-    let nodes=unsafe {
-      self.query_selector("a").unwrap_unchecked()
-    };
-
-    for node_handle in nodes {
+    self.query_selector("a")
+    .unwrap()
+    .filter_map(|node_handle| {
       let herf=node_handle.get(self.parser())
       .unwrap()
       .extract_herf(pattern);
       let url=match herf {
         Some(url)=> url,
-        _=> continue
+        _=> return None
       };
-
       // SAFETY: the filtered links are absolute paths
-      urls.push(unsafe {
-        Url::parse(url).unwrap_unchecked()
-      });
-    }
+      let url=Url::parse(url).unwrap();
+      let path=percent_encode_path!(url);
 
-    urls
+      // SAFETY: trust me bro. (its already been filterred 69 times)
+      Some((url,dir.as_ref().join(path.file_name().unwrap())))
+    }).collect::<Vec<_>>()
   }
 }
 
@@ -81,15 +93,15 @@ mod tests {
 
   #[test]
   fn xd()-> anyhow::Result<()> {
-    let mut map=HashMap::<OsString,Vec<String>>::new();
+    let mut map=HashMap::<OsString,Vec<(String,_)>>::new();
 
     for file in fs::read_dir("./assets")? {
       let file=file?;
       let html=fs::read_to_string(file.path())?;
       let dom=tl::parse(&html,Default::default())?;
-      let extracted_urls=dom.extract_urls(&Regex::new(r"\.(mp4|mkv)$")?)
+      let extracted_urls=dom.extract_urls(&Regex::new(r"\.(mp4|mkv)$")?,"")
       .into_iter()
-      .map(|url| url.into())
+      .map(|(url,path)| (url.into(),path))
       .collect::<Vec<_>>();
 
       map.insert(file.file_name(),extracted_urls);
