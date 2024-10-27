@@ -2,9 +2,15 @@
 name = "mget"
 version = "1.0.0"
 edition = "2021"
+license = "MIT"
+homepage = "https://github.com/nearest-river/mget"
+repository = "https://github.com/nearest-river/mget"
+documentation = "https://docs.rs/mget"
+
 
 [package.metadata]
 repository = "https://github.com/nearest-river/mget"
+
 
 [profile.release]
 strip = true
